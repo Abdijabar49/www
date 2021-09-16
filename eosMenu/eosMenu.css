@@ -1,0 +1,89 @@
+.eos-menu,
+.eos-menu *,
+.eos-menu *:before,
+.eos-menu *:after {
+	padding: 0px;
+	margin: 0px;
+	box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+}
+
+.eos-menu {
+	font-size: 14px;
+	color: #eee;
+}
+
+.eos-menu li {
+	list-style: none;
+}
+
+.eos-menu .eos-menu-content {
+	position: absolute;
+	width: 100%;
+	overflow-y: hidden;
+	height: 0px;
+	z-index: 10;
+	transition: all 0.5s ease-in-out;
+	-moz-transition: all 0.5s ease-in-out;
+	-webkit-transition: all 0.5s ease-in-out;
+	-o-transition: all 0.5s ease-in-out;
+}
+
+.eos-menu .eos-group-content {
+	overflow-y: hidden;
+	height: 0px;
+	transition: all 0.5s ease-in-out;
+	-moz-transition: all 0.5s ease-in-out;
+	-webkit-transition: all 0.5s ease-in-out;
+	-o-transition: all 0.5s ease-in-out;
+}
+
+.eos-menu .eos-menu-title,
+.eos-menu .eos-group-title,
+.eos-menu .eos-item {
+	height: 40px;
+	line-height: 40px;
+	background: #B94A48;
+	border-color: #293744;
+	padding-left: 15px !important;
+	padding-right: 15px !important;
+	border-bottom: 1px solid transparent;
+}
+
+.eos-menu .eos-menu-title .fa,
+.eos-menu .eos-group-title .fa,
+.eos-menu .eos-item .fa { 
+	line-height: 40px;
+}
+
+.eos-menu .eos-group-content .eos-item {
+	background: #552233;
+	padding-left: 30px !important;
+}
+
+.eos-menu .eos-item a {
+	color: #eee;
+	display: block;
+	text-decoration: none;
+}
+._toggleMenu .nav > li.hover > ul {
+    display:block;
+}
+.eos-menu .eos-pull-right {
+	float: right;
+}
+
+.eos-menu .auto-height {
+	height: auto;
+}
+
+@media (min-width: 768px) {
+	.eos-menu .eos-menu-title {
+		display: none;
+	}
+	.eos-menu .eos-menu-content {
+		height: auto;
+		position: inherit;
+	}
+}
