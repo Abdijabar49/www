@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GBP/USD Live Probability Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+    :root {
+        --bg: #0b1220;
+        --panel: #121a2b;
+        --panel-2: #1a2440;
+        --accent: #4ea1ff;
+        --buy: #16c784;
+        --sell: #ea3943;
+        --neutral: #a0a4ad;
+        --text: #e6edf3;
+        --muted: #8b94a7;
+        --border: #1f2a44;
+    }
+    * { box-sizing: border-box; }
+    body {
+        background: linear-gradient(180deg, #07101f 0%, #0b1220 100%);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+    }
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 24px; }
+    .topbar {
+        display: flex; align-items: center; justify-content: space-between;
+        flex-wrap: wrap; gap: 12px; margin-bottom: 24px;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand .pair {
+        font-size: 28px; font-weight: 700; letter-spacing: 0.5px;
+    }
+    .brand .sub { color: var(--muted); font-size: 13px; }
+    .pulse {
+        width: 10px; height: 10px; border-radius: 50%;
+        background: var(--buy); box-shadow: 0 0 0 0 rgba(22,199,132,.7);
+        animation: pulse 1.6s infinite;
+    }
+    @keyframes pulse {
+        0%   { box-shadow: 0 0 0 0 rgba(22,199,132,.7); }
+        70%  { box-shadow: 0 0 0 12px rgba(22,199,132,0); }
+        100% { box-shadow: 0 0 0 0 rgba(22,199,132,0); }
+    }
+    .meta {
+        font-size: 12px; color: var(--muted);
+        display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    .meta b { color: var(--text); font-weight: 600; }
+
+    .grid { display: grid; gap: 20px; grid-template-columns: 1fr; }
+    @media (min-width: 980px) { .grid { grid-template-columns: 1.1fr 1fr; } }
+
+    .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 22px;
+    }
+    .panel h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin: 0 0 16px; }
+
+    .hero { display: flex; flex-direction: column; gap: 14px; }
+    .verdict {
+        display: flex; align-items: baseline; gap: 14px;
+    }
+    .verdict .label {
+        font-size: 38px; font-weight: 800; letter-spacing: 1px;
+    }
+    .verdict .horizon { color: var(--muted); font-size: 13px; }
+    .verdict.buy .label  { color: var(--buy); }
+    .verdict.sell .label { color: var(--sell); }
+    .verdict.neutral .label { color: var(--neutral); }
+
+    .probrow { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .prob {
+        background: var(--panel-2);
+        border-radius: 12px;
+        padding: 18px;
+        border: 1px solid var(--border);
+        position: relative; overflow: hidden;
+    }
+    .prob .name { font-size: 12px; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; }
+    .prob .pct  { font-size: 44px; font-weight: 800; margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
+    .prob.buy  .pct { color: var(--buy); }
+    .prob.sell .pct { color: var(--sell); }
+    .bar { height: 8px; background: #0a1224; border-radius: 8px; overflow: hidden; }
+    .bar > span {
+        display: block; height: 100%;
+        transition: width 0.8s cubic-bezier(.2,.8,.2,1);
+    }
+    .prob.buy  .bar > span { background: linear-gradient(90deg, #16c784, #2bd2a0); }
+    .prob.sell .bar > span { background: linear-gradient(90deg, #ea3943, #ff6b73); }
+
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 6px; }
+    .stat {
+        background: var(--panel-2); border: 1px solid var(--border);
+        border-radius: 10px; padding: 12px; text-align: center;
+    }
+    .stat .k { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 1px; }
+    .stat .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    .sources-list { display: flex; flex-direction: column; gap: 8px; }
+    .source-row {
+        display: flex; align-items: center; justify-content: space-between;
+        background: var(--panel-2); border: 1px solid var(--border);
+        border-radius: 10px; padding: 10px 14px; font-size: 13px;
+    }
+    .source-row .left { display: flex; align-items: center; gap: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--neutral); }
+    .dot.ok   { background: var(--buy); }
+    .dot.fail { background: var(--sell); }
+    .dot.pending { background: #d6a23a; }
+    .source-row .right { color: var(--muted); font-size: 12px; }
+
+    .news { display: flex; flex-direction: column; gap: 10px; max-height: 580px; overflow: auto; }
+    .news::-webkit-scrollbar { width: 8px; }
+    .news::-webkit-scrollbar-thumb { background: #243352; border-radius: 8px; }
+    .item {
+        background: var(--panel-2); border: 1px solid var(--border);
+        border-radius: 10px; padding: 12px 14px;
+        border-left: 3px solid var(--neutral);
+    }
+    .item.bullish { border-left-color: var(--buy); }
+    .item.bearish { border-left-color: var(--sell); }
+    .item a { color: var(--text); text-decoration: none; font-weight: 600; line-height: 1.35; display: block; }
+    .item a:hover { color: var(--accent); }
+    .item .meta-row {
+        display: flex; align-items: center; gap: 10px;
+        margin-top: 6px; font-size: 11px; color: var(--muted);
+        flex-wrap: wrap;
+    }
+    .badge { padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+    .badge.bullish { background: rgba(22,199,132,.15); color: var(--buy); }
+    .badge.bearish { background: rgba(234,57,67,.15); color: var(--sell); }
+    .badge.neutral { background: rgba(160,164,173,.15); color: var(--neutral); }
+    .badge.source  { background: rgba(78,161,255,.15); color: var(--accent); }
+
+    .empty { color: var(--muted); font-size: 13px; padding: 18px; text-align: center; }
+    .footer-note { color: var(--muted); font-size: 11px; margin-top: 18px; text-align: center; }
+    .err { color: var(--sell); font-size: 12px; }
+    .countdown { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+    <div class="topbar">
+        <div class="brand">
+            <div class="pulse" id="pulseDot"></div>
+            <div>
+                <div class="pair">GBP / USD</div>
+                <div class="sub">Live sentiment-based probability dashboard &middot; 24h horizon</div>
+            </div>
+        </div>
+        <div class="meta">
+            <span>Last fetch: <b id="lastFetch">--:--:--</b></span>
+            <span>Next refresh in <b class="countdown" id="countdown">--</b></span>
+            <span>Page time: <b id="clock">--:--:--</b></span>
+        </div>
+    </div>
+
+    <div class="grid">
+
+        <div class="panel hero">
+            <h2>Probability &mdash; next 24 hours</h2>
+
+            <div class="verdict neutral" id="verdict">
+                <span class="label" id="verdictLabel">LOADING&hellip;</span>
+                <span class="horizon">based on aggregated headlines</span>
+            </div>
+
+            <div class="probrow">
+                <div class="prob buy">
+                    <div class="name">Buy probability</div>
+                    <div class="pct" id="buyPct">--%</div>
+                    <div class="bar"><span id="buyBar" style="width:0%"></span></div>
+                </div>
+                <div class="prob sell">
+                    <div class="name">Sell probability</div>
+                    <div class="pct" id="sellPct">--%</div>
+                    <div class="bar"><span id="sellBar" style="width:0%"></span></div>
+                </div>
+            </div>
+
+            <div class="stats">
+                <div class="stat"><div class="k">Relevant items</div><div class="v" id="mRelevant">--</div></div>
+                <div class="stat"><div class="k">Bullish hits</div>  <div class="v" id="mBull">--</div></div>
+                <div class="stat"><div class="k">Bearish hits</div>  <div class="v" id="mBear">--</div></div>
+                <div class="stat"><div class="k">Sources online</div><div class="v" id="mSrc">--</div></div>
+            </div>
+
+            <div id="apiError" class="err"></div>
+        </div>
+
+        <div class="panel">
+            <h2>Source feed status</h2>
+            <div class="sources-list" id="sources"></div>
+            <div class="footer-note">
+                Sources: Forex Factory, Investing.com, DailyFX, FXStreet, Reuters,
+                Bloomberg, Trading Economics, Action Forex, Kitco News, MarketWatch, Myfxbook.
+            </div>
+        </div>
+
+        <div class="panel" style="grid-column: 1 / -1;">
+            <h2>Latest GBP/USD-relevant headlines</h2>
+            <div class="news" id="news">
+                <div class="empty">Loading headlines from the approved sources&hellip;</div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="footer-note">
+        Data is sentiment-derived from public RSS feeds of the listed sources only,
+        delivered through a public CORS proxy (api.allorigins.win) because browsers cannot
+        cross-origin fetch RSS directly. This is informational and is <b>not financial advice</b>.
+    </div>
+
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    /* ----------------------------- Configuration ----------------------------- */
+
+    // Public CORS proxies (used in order; we fall back if one fails).
+    const PROXIES = [
+        url => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+        url => 'https://corsproxy.io/?' + encodeURIComponent(url),
+    ];
+
+    // Each source can list multiple candidate URLs; the first one that works wins.
+    // Bloomberg has no public RSS feed for currencies, so it is left null.
+    const SOURCES = {
+        'Forex Factory':     ['https://nfs.faireconomy.media/ff_calendar_thisweek.xml'],
+        'Investing.com':     [
+            'https://www.investing.com/rss/news_1.rss',
+            'https://www.investing.com/rss/news_285.rss',
+            'https://www.investing.com/rss/forex.rss',
+        ],
+        'DailyFX':           [
+            'https://www.dailyfx.com/feeds/all',
+            'https://www.dailyfx.com/feeds/market-news',
+        ],
+        'FXStreet':          [
+            'https://www.fxstreet.com/news/feed',
+            'https://www.fxstreet.com/rss/news',
+        ],
+        'Reuters':           [
+            'https://www.reuters.com/world/uk/rss',
+            'https://feeds.reuters.com/reuters/businessNews',
+        ],
+        'Bloomberg':         null,
+        'Trading Economics': [
+            'https://tradingeconomics.com/rss/news.aspx?i=united+kingdom',
+            'https://tradingeconomics.com/rss/news.aspx?i=forex',
+        ],
+        'Action Forex':      ['https://www.actionforex.com/feed/'],
+        'Kitco News':        [
+            'https://www.kitco.com/rss/KitcoNews.xml',
+            'https://www.kitco.com/news/feed',
+        ],
+        'MarketWatch':       [
+            'https://feeds.content.dowjones.io/public/rss/mw_marketpulse',
+            'https://feeds.content.dowjones.io/public/rss/mw_topstories',
+        ],
+        'Myfxbook':          ['https://www.myfxbook.com/rss/forex-economic-calendar-events'],
+    };
+
+    const RELEVANT_TERMS = [
+        'gbp', 'usd', 'dollar', 'pound', 'sterling', 'cable',
+        'boe', 'bank of england', 'fed', 'federal reserve', 'fomc',
+        ' uk ', 'u.k.', 'britain', 'british', 'gilt', 'treasury yield',
+    ];
+
+    // Bullish for GBP/USD: pound up OR dollar down
+    const BULLISH_TERMS = [
+        'pound rises','pound up','pound gains','pound rallies','pound climbs','pound surges','pound jumps','pound strengthens','pound advances','pound firmer',
+        'sterling rises','sterling up','sterling gains','sterling rallies','sterling climbs','sterling strengthens','sterling firmer',
+        'cable rises','cable up','cable gains','cable rallies','cable climbs',
+        'gbp rises','gbp gains','gbp rallies','gbp climbs','gbp strengthens',
+        'gbp/usd rises','gbp/usd gains','gbp/usd rallies','gbp/usd climbs','gbp/usd advances','gbp/usd higher',
+        'hawkish boe','boe hawkish','boe hike','rate hike boe','bank of england hike','strong uk','uk beats','uk inflation rises',
+        'dollar weakens','dollar falls','dollar drops','dollar slips','dollar declines','dollar slumps','dollar tumbles','dollar lower','dollar softer',
+        'usd weakens','usd falls','usd drops','usd lower','usd softer',
+        'dovish fed','fed dovish','fed cuts','fed cut','rate cut fed','weak us data','us data misses',
+    ];
+
+    // Bearish for GBP/USD: pound down OR dollar up
+    const BEARISH_TERMS = [
+        'pound falls','pound down','pound drops','pound slips','pound declines','pound slumps','pound tumbles','pound weakens','pound softer',
+        'sterling falls','sterling down','sterling drops','sterling slips','sterling declines','sterling slumps','sterling weakens','sterling softer',
+        'cable falls','cable down','cable drops','cable slips','cable declines',
+        'gbp falls','gbp drops','gbp weakens','gbp lower',
+        'gbp/usd falls','gbp/usd drops','gbp/usd declines','gbp/usd lower','gbp/usd slumps',
+        'dovish boe','boe dovish','boe cut','rate cut boe','weak uk','uk misses','uk inflation falls','retail sales fall','retail sales drop',
+        'dollar rises','dollar up','dollar gains','dollar rallies','dollar climbs','dollar surges','dollar jumps','dollar strengthens','dollar advances','dollar firmer','dollar higher',
+        'usd rises','usd gains','usd rallies','usd climbs','usd strengthens','usd higher','usd firmer',
+        'hawkish fed','fed hawkish','fed hike','rate hike fed','strong us data','us data beats','us inflation rises',
+    ];
+
+    const REFRESH_TICK_MS = 1000;     // UI tick every second
+    const FETCH_INTERVAL_S = 60;      // Re-fetch RSS every 60s (rate-limit-friendly)
+
+    /* -------------------------------- Helpers -------------------------------- */
+
+    const $ = id => document.getElementById(id);
+
+    function fmtClock(d) {
+        const pad = n => String(n).padStart(2, '0');
+        return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    }
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+    function relativeAge(ts) {
+        if (!ts) return 'time unknown';
+        const seconds = Math.floor(Date.now() / 1000) - ts;
+        if (seconds < 60)    return seconds + 's ago';
+        if (seconds < 3600)  return Math.floor(seconds / 60) + 'm ago';
+        if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+        return Math.floor(seconds / 86400) + 'd ago';
+    }
+    function lower(s) { return ' ' + (s || '').toLowerCase() + ' '; }
+    function isRelevant(text) {
+        const t = lower(text);
+        return RELEVANT_TERMS.some(kw => t.indexOf(kw) !== -1);
+    }
+    function scoreText(text) {
+        const t = lower(text);
+        let bull = 0, bear = 0;
+        for (const k of BULLISH_TERMS) if (t.indexOf(k) !== -1) bull++;
+        for (const k of BEARISH_TERMS) if (t.indexOf(k) !== -1) bear++;
+        return [bull, bear];
+    }
+
+    /* ------------------------------ Feed parsing ----------------------------- */
+
+    function parseFeedItems(xmlString) {
+        if (!xmlString) return [];
+        let doc;
+        try {
+            doc = new DOMParser().parseFromString(xmlString, 'application/xml');
+        } catch (e) { return []; }
+        if (!doc || doc.querySelector('parsererror')) {
+            // Try as text/xml as a fallback
+            try { doc = new DOMParser().parseFromString(xmlString, 'text/xml'); }
+            catch (e) { return []; }
+            if (!doc || doc.querySelector('parsererror')) return [];
+        }
+
+        const out = [];
+
+        // RSS 2.0
+        const rssItems = doc.querySelectorAll('channel > item, item');
+        if (rssItems.length) {
+            rssItems.forEach(it => {
+                out.push({
+                    title:   (it.querySelector('title')?.textContent || '').trim(),
+                    link:    (it.querySelector('link')?.textContent  || '').trim(),
+                    desc:    (it.querySelector('description')?.textContent || '').trim(),
+                    pubDate: (it.querySelector('pubDate')?.textContent || '').trim(),
+                });
+            });
+            return out;
+        }
+
+        // Atom
+        const entries = doc.querySelectorAll('entry');
+        if (entries.length) {
+            entries.forEach(e => {
+                const linkEl = e.querySelector('link');
+                const link = linkEl ? (linkEl.getAttribute('href') || linkEl.textContent || '') : '';
+                out.push({
+                    title:   (e.querySelector('title')?.textContent || '').trim(),
+                    link:    link.trim(),
+                    desc:    (e.querySelector('summary')?.textContent || e.querySelector('content')?.textContent || '').trim(),
+                    pubDate: (e.querySelector('updated')?.textContent || e.querySelector('published')?.textContent || '').trim(),
+                });
+            });
+            return out;
+        }
+
+        // Forex Factory custom calendar XML
+        const events = doc.querySelectorAll('event');
+        if (events.length) {
+            events.forEach(ev => {
+                const country  = (ev.querySelector('country')?.textContent || '').toLowerCase();
+                if (!['gbp','usd','uk','us'].includes(country)) return;
+                const title    = (ev.querySelector('title')?.textContent || '').trim();
+                const date     = (ev.querySelector('date')?.textContent  || '').trim();
+                const time     = (ev.querySelector('time')?.textContent  || '').trim();
+                const impact   = (ev.querySelector('impact')?.textContent  || '').trim();
+                const forecast = (ev.querySelector('forecast')?.textContent  || '').trim();
+                const previous = (ev.querySelector('previous')?.textContent  || '').trim();
+                out.push({
+                    title:   title + ' [' + country.toUpperCase() + ']',
+                    link:    'https://www.forexfactory.com/calendar',
+                    desc:    'Impact: ' + impact + ' | Forecast: ' + forecast + ' | Previous: ' + previous,
+                    pubDate: (date + ' ' + time).trim(),
+                });
+            });
+            return out;
+        }
+
+        return out;
+    }
+
+    /* --------------------------- Network with proxies ------------------------ */
+
+    async function fetchViaProxies(url, timeoutMs) {
+        timeoutMs = timeoutMs || 7000;
+        let lastErr = null;
+        for (const buildProxyUrl of PROXIES) {
+            const proxied = buildProxyUrl(url);
+            try {
+                const ctrl = new AbortController();
+                const tm = setTimeout(() => ctrl.abort(), timeoutMs);
+                const res = await fetch(proxied, { signal: ctrl.signal, cache: 'no-store' });
+                clearTimeout(tm);
+                if (!res.ok) { lastErr = 'HTTP ' + res.status; continue; }
+                const text = await res.text();
+                if (!text || text.length < 20) { lastErr = 'Empty body'; continue; }
+                return { ok: true, body: text };
+            } catch (e) {
+                lastErr = e && e.message ? e.message : String(e);
+            }
+        }
+        return { ok: false, body: '', error: lastErr || 'unknown error' };
+    }
+
+    async function fetchSource(name, urls) {
+        for (const u of urls) {
+            const r = await fetchViaProxies(u);
+            if (r.ok) {
+                const items = parseFeedItems(r.body);
+                if (items.length) return { ok: true, items, urlUsed: u };
+            }
+        }
+        return { ok: false, items: [], error: 'No feed returned usable items' };
+    }
+
+    /* ---------------------------- Aggregation core --------------------------- */
+
+    async function runAggregation(state) {
+        const allHeadlines = [];
+        const sourceStatus = {};
+        let bullTotal = 0, bearTotal = 0, relevantTotal = 0;
+
+        // Mark all as pending in the UI immediately so user sees activity
+        const pending = {};
+        for (const name of Object.keys(SOURCES)) {
+            pending[name] = SOURCES[name] === null
+                ? { ok: false, reason: 'No public RSS feed available', items: 0 }
+                : { ok: null, reason: 'Fetching…', items: 0 };
+        }
+        renderSources(pending);
+
+        // Fire all source fetches in parallel
+        const tasks = Object.entries(SOURCES).map(async ([name, urls]) => {
+            if (!urls) {
+                sourceStatus[name] = { ok: false, reason: 'No public RSS feed available', items: 0 };
+                return;
+            }
+            const result = await fetchSource(name, urls);
+            if (!result.ok) {
+                sourceStatus[name] = { ok: false, reason: result.error, items: 0 };
+                return;
+            }
+            let relevantCount = 0;
+            for (const it of result.items) {
+                const combined = (it.title || '') + ' ' + (it.desc || '');
+                if (!isRelevant(combined)) continue;
+                const [b, br] = scoreText(combined);
+                const net = b - br;
+                const sentiment = net > 0 ? 'bullish' : (net < 0 ? 'bearish' : 'neutral');
+                bullTotal     += b;
+                bearTotal     += br;
+                relevantTotal++;
+                relevantCount++;
+                const ts = it.pubDate ? Math.floor(Date.parse(it.pubDate) / 1000) || 0 : 0;
+                allHeadlines.push({
+                    source: name,
+                    title:  it.title,
+                    link:   it.link,
+                    pubDate: it.pubDate,
+                    pubTs:  ts,
+                    score:  net,
+                    sentiment,
+                });
+            }
+            sourceStatus[name] = { ok: true, reason: 'OK', items: relevantCount };
+        });
+        await Promise.all(tasks);
+
+        // Probability with mild time decay (16h half-life) and confidence regularization
+        const now = Math.floor(Date.now() / 1000);
+        let weightedBull = 0, weightedBear = 0;
+        for (const h of allHeadlines) {
+            const ageH = h.pubTs > 0 ? Math.max(0, (now - h.pubTs) / 3600) : 24;
+            const w = Math.exp(-ageH / 24);
+            if (h.score > 0)      weightedBull += h.score * w;
+            else if (h.score < 0) weightedBear += Math.abs(h.score) * w;
+        }
+        let buyProb = 50;
+        const totalW = weightedBull + weightedBear;
+        if (totalW > 0) {
+            const rawBuy = (weightedBull / totalW) * 100;
+            const conf   = Math.min(1, totalW / 8);
+            buyProb = 50 + (rawBuy - 50) * conf;
+            buyProb = Math.max(15, Math.min(85, buyProb));
+        }
+        const sellProb = 100 - buyProb;
+        let direction = 'NEUTRAL';
+        if (buyProb >= 60) direction = 'BUY';
+        else if (buyProb >= 53) direction = 'LEAN BUY';
+        else if (buyProb <= 40) direction = 'SELL';
+        else if (buyProb <= 47) direction = 'LEAN SELL';
+
+        // Sort newest first, top 30
+        allHeadlines.sort((a, b) => b.pubTs - a.pubTs);
+        const headlines = allHeadlines.slice(0, 30);
+
+        const data = {
+            updatedAt: new Date().toISOString(),
+            buyProbability:  Math.round(buyProb * 10) / 10,
+            sellProbability: Math.round(sellProb * 10) / 10,
+            direction,
+            metrics: {
+                relevantHeadlines: relevantTotal,
+                bullishHits: bullTotal,
+                bearishHits: bearTotal,
+            },
+            sources: sourceStatus,
+            headlines,
+        };
+
+        state.lastData = data;
+        render(data);
+    }
+
+    /* --------------------------------- Render -------------------------------- */
+
+    function renderSources(sources) {
+        const srcEl = $('sources');
+        srcEl.innerHTML = '';
+        let online = 0;
+        const total = Object.keys(sources).length;
+        Object.entries(sources).forEach(([name, info]) => {
+            let dotCls = 'pending';
+            if (info.ok === true)       { dotCls = 'ok'; online++; }
+            else if (info.ok === false) { dotCls = 'fail'; }
+            const right = info.ok === true ? (info.items + ' relevant items') : escapeHtml(info.reason);
+            const row = document.createElement('div');
+            row.className = 'source-row';
+            row.innerHTML =
+                '<div class="left"><span class="dot ' + dotCls + '"></span><span>' + escapeHtml(name) + '</span></div>' +
+                '<div class="right">' + right + '</div>';
+            srcEl.appendChild(row);
+        });
+        $('mSrc').textContent = online + '/' + total;
+    }
+
+    function render(data) {
+        $('buyPct').textContent  = data.buyProbability.toFixed(1)  + '%';
+        $('sellPct').textContent = data.sellProbability.toFixed(1) + '%';
+        $('buyBar').style.width  = data.buyProbability  + '%';
+        $('sellBar').style.width = data.sellProbability + '%';
+
+        const v = $('verdict');
+        v.classList.remove('buy', 'sell', 'neutral');
+        let cls = 'neutral';
+        if (data.direction === 'BUY' || data.direction === 'LEAN BUY')   cls = 'buy';
+        else if (data.direction === 'SELL' || data.direction === 'LEAN SELL') cls = 'sell';
+        v.classList.add(cls);
+        $('verdictLabel').textContent = data.direction;
+
+        $('mRelevant').textContent = data.metrics.relevantHeadlines;
+        $('mBull').textContent     = data.metrics.bullishHits;
+        $('mBear').textContent     = data.metrics.bearishHits;
+
+        renderSources(data.sources);
+
+        const news = $('news');
+        if (!data.headlines.length) {
+            news.innerHTML = '<div class="empty">No GBP/USD-relevant headlines parsed yet. Some sources may be blocked by the proxy or rate-limited.</div>';
+        } else {
+            news.innerHTML = data.headlines.map(h => (
+                '<div class="item ' + h.sentiment + '">' +
+                    '<a href="' + escapeHtml(h.link) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(h.title) + '</a>' +
+                    '<div class="meta-row">' +
+                        '<span class="badge source">' + escapeHtml(h.source) + '</span>' +
+                        '<span class="badge ' + h.sentiment + '">' + h.sentiment + '</span>' +
+                        '<span>' + escapeHtml(relativeAge(h.pubTs)) + '</span>' +
+                        (h.pubDate ? '<span>&middot; ' + escapeHtml(h.pubDate) + '</span>' : '') +
+                    '</div>' +
+                '</div>'
+            )).join('');
+        }
+    }
+
+    /* ----------------------------- Tick controller --------------------------- */
+
+    const state = {
+        lastData: null,
+        secondsSinceFetch: FETCH_INTERVAL_S, // trigger immediately on start
+        running: false,
+    };
+
+    async function maybeFetch() {
+        if (state.running) return;
+        if (state.secondsSinceFetch < FETCH_INTERVAL_S) return;
+        state.running = true;
+        try {
+            await runAggregation(state);
+            $('lastFetch').textContent = fmtClock(new Date());
+            $('apiError').textContent = '';
+        } catch (e) {
+            $('apiError').textContent = 'Aggregation error: ' + (e && e.message ? e.message : e);
+        } finally {
+            state.secondsSinceFetch = 0;
+            state.running = false;
+        }
+    }
+
+    function tick() {
+        $('clock').textContent = fmtClock(new Date());
+        state.secondsSinceFetch++;
+        const remaining = Math.max(0, FETCH_INTERVAL_S - state.secondsSinceFetch);
+        $('countdown').textContent = remaining + 's';
+        if (state.secondsSinceFetch >= FETCH_INTERVAL_S) {
+            maybeFetch();
+        }
+    }
+
+    // Boot
+    maybeFetch();
+    setInterval(tick, REFRESH_TICK_MS);
+})();
+</script>
+</body>
+</html>
