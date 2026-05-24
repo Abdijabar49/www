@@ -1,0 +1,42 @@
+name: GBPUSD news sentiment
+
+# Runs the news-sentiment service hourly and commits the resulting
+# latest.json back to the repo so it can be consumed externally
+# (raw GitHub URL, GitHub Pages, or pulled by a TradingView bridge).
+
+on:
+  schedule:
+    - cron: "0 * * * *"     # every hour, on the hour, UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run sentiment service
+        working-directory: tradingview-gbpusd
+        env:
+          NEWS_WEBHOOK: ${{ secrets.NEWS_WEBHOOK }}
+        run: |
+          python news_sentiment.py --out latest.json
+
+      - name: Commit latest.json
+        run: |
+          if [ -n "$(git status --porcelain tradingview-gbpusd/latest.json)" ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add tradingview-gbpusd/latest.json
+            git commit -m "chore(news): update GBPUSD sentiment $(date -u +'%Y-%m-%dT%H:%MZ')"
+            git push
+          else
+            echo "No change in latest.json"
+          fi

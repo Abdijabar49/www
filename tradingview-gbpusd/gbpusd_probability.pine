@@ -1,0 +1,195 @@
+//@version=5
+// =============================================================================
+// GBP/USD 24/7 Buy/Sell Probability
+// -----------------------------------------------------------------------------
+// Combines several "always-on" inputs available natively inside TradingView and
+// blends them into a 0-100% buy probability (sell% = 100 - buy%).
+//
+// Components:
+//   1. Multi-timeframe trend (D1 EMAs)
+//   2. Momentum (RSI + MACD on the chart timeframe)
+//   3. DXY divergence  (TVC:DXY)
+//   4. UK-US 10Y yield spread (TVC:GB10Y - TVC:US10Y)
+//   5. Volatility regime (ATR vs its 50-bar SMA)
+//   6. Session liquidity weight
+//   7. (Optional) external news-sentiment score, fed in via input
+//      from the companion Python service in this folder.
+//
+// All weights are user-configurable. The score is mapped from [-1, +1] to
+// [0%, 100%] and plotted as two lines plus a status table.
+// =============================================================================
+indicator("GBP/USD 24/7 Buy/Sell Probability", shorttitle="GU Prob 24/7",
+     overlay=false, precision=1, max_labels_count=200)
+
+// ===== Inputs : enable / disable components ==================================
+gIn       = "Components"
+useTrend  = input.bool(true,  "Use trend (D1 EMAs)",        group=gIn)
+useMom    = input.bool(true,  "Use momentum (RSI/MACD)",    group=gIn)
+useDXY    = input.bool(true,  "Use DXY divergence",         group=gIn)
+useYield  = input.bool(true,  "Use UK-US 10Y spread",       group=gIn)
+useVol    = input.bool(true,  "Use volatility regime",      group=gIn)
+useSess   = input.bool(true,  "Apply session liquidity weight", group=gIn)
+useNews   = input.bool(false, "Use external news score (Python service)", group=gIn)
+
+// ===== Inputs : weights ======================================================
+gW       = "Weights"
+wTrend   = input.float(0.25, "Trend weight",     0, 1, step=0.05, group=gW)
+wMom     = input.float(0.20, "Momentum weight",  0, 1, step=0.05, group=gW)
+wDXY     = input.float(0.20, "DXY weight",       0, 1, step=0.05, group=gW)
+wYield   = input.float(0.15, "Yield spread wt",  0, 1, step=0.05, group=gW)
+wVol     = input.float(0.05, "Volatility wt",    0, 1, step=0.05, group=gW)
+wNews    = input.float(0.15, "News sentiment wt",0, 1, step=0.05, group=gW)
+
+// ===== Inputs : symbols & news ==============================================
+gS         = "Symbols / News"
+dxySym     = input.symbol("TVC:DXY",   "DXY symbol",      group=gS)
+ukYldSym   = input.symbol("TVC:GB10Y", "UK 10Y yield",    group=gS)
+usYldSym   = input.symbol("TVC:US10Y", "US 10Y yield",    group=gS)
+newsScore  = input.float(0.0, "External news score (-1..+1)", -1, 1, step=0.05, group=gS,
+     tooltip="Manually paste the latest score from the companion Python service " +
+             "(news_sentiment.py output, field 'score'). Range is -1 (max bearish " +
+             "for GBP) to +1 (max bullish for GBP).")
+
+// ===== Inputs : thresholds ===================================================
+gT        = "Thresholds & Alerts"
+buyZone   = input.int(60, "Buy zone %",  50, 90, group=gT)
+sellZone  = input.int(40, "Sell zone %", 10, 50, group=gT)
+
+// =============================================================================
+// 1) Trend score (D1)
+// =============================================================================
+d_close = request.security(syminfo.tickerid, "D", close,    barmerge.gaps_off, barmerge.lookahead_off)
+d_e20   = request.security(syminfo.tickerid, "D", ta.ema(close, 20),  barmerge.gaps_off, barmerge.lookahead_off)
+d_e50   = request.security(syminfo.tickerid, "D", ta.ema(close, 50),  barmerge.gaps_off, barmerge.lookahead_off)
+d_e200  = request.security(syminfo.tickerid, "D", ta.ema(close, 200), barmerge.gaps_off, barmerge.lookahead_off)
+
+trendScore = 0.0
+trendScore += d_close > d_e20  ? 0.34 : -0.34
+trendScore += d_e20   > d_e50  ? 0.33 : -0.33
+trendScore += d_close > d_e200 ? 0.33 : -0.33
+
+// =============================================================================
+// 2) Momentum (chart timeframe)
+// =============================================================================
+rsi14 = ta.rsi(close, 14)
+[macdLine, sigLine, _hist] = ta.macd(close, 12, 26, 9)
+
+momScore = 0.0
+momScore += math.max(-1.0, math.min(1.0, (rsi14 - 50) / 25)) * 0.5
+momScore += macdLine > sigLine ? 0.5 : -0.5
+momScore := math.max(-1.0, math.min(1.0, momScore))
+
+// =============================================================================
+// 3) DXY divergence (USD strength is bearish for cable)
+// =============================================================================
+dxy   = request.security(dxySym, timeframe.period, close, barmerge.gaps_off, barmerge.lookahead_off)
+dxyChgPct = ta.change(dxy, 20) / dxy[20] * 100
+// Negative of %change because rising DXY hurts GBP/USD; clamp to [-1, 1]
+dxyScore = math.max(-1.0, math.min(1.0, -dxyChgPct / 2.0))
+
+// =============================================================================
+// 4) UK - US 10Y yield spread (rising spread is bullish for GBP)
+// =============================================================================
+ukY = request.security(ukYldSym, "D", close, barmerge.gaps_off, barmerge.lookahead_off)
+usY = request.security(usYldSym, "D", close, barmerge.gaps_off, barmerge.lookahead_off)
+spread     = ukY - usY
+spreadChg  = ta.change(spread, 10)
+yieldScore = math.max(-1.0, math.min(1.0, spreadChg * 4.0))
+
+// =============================================================================
+// 5) Volatility regime (high vol = lower confidence)
+// =============================================================================
+atr14 = ta.atr(14)
+atrAvg = ta.sma(atr14, 50)
+volRatio = atrAvg == 0 ? 1.0 : atr14 / atrAvg
+volPenalty = volRatio > 1.5 ? -0.5 : volRatio < 0.7 ? 0.2 : 0.0
+
+// =============================================================================
+// 6) Session liquidity weight (London + NY combined are deepest)
+// =============================================================================
+hr = hour(time, "GMT")
+sessionWeight = useSess ? ((hr >= 7 and hr < 21) ? 1.0 : 0.6) : 1.0
+
+// =============================================================================
+// 7) External news score (paste from Python service)
+// =============================================================================
+extNews = math.max(-1.0, math.min(1.0, newsScore))
+
+// =============================================================================
+// Combine
+// =============================================================================
+denom = (useTrend ? wTrend : 0) + (useMom ? wMom : 0) + (useDXY ? wDXY : 0) +
+         (useYield ? wYield : 0) + (useVol ? wVol : 0) + (useNews ? wNews : 0)
+denom := denom == 0 ? 1 : denom
+
+raw =
+   (useTrend ? trendScore  * wTrend : 0) +
+   (useMom   ? momScore    * wMom   : 0) +
+   (useDXY   ? dxyScore    * wDXY   : 0) +
+   (useYield ? yieldScore  * wYield : 0) +
+   (useVol   ? volPenalty  * wVol   : 0) +
+   (useNews  ? extNews     * wNews  : 0)
+raw := raw / denom * sessionWeight
+raw := math.max(-1.0, math.min(1.0, raw))
+
+buyProb  = 50.0 + raw * 50.0
+buyProb  := math.max(0.0, math.min(100.0, buyProb))
+sellProb = 100.0 - buyProb
+
+// =============================================================================
+// Plotting
+// =============================================================================
+plot(buyProb,  "Buy %",  color=color.new(color.green, 0), linewidth=2)
+plot(sellProb, "Sell %", color=color.new(color.red,   0), linewidth=2)
+hline(50,         "Neutral",  color=color.new(color.gray,  20), linestyle=hline.style_dashed)
+hline(buyZone,    "Buy zone", color=color.new(color.green, 60))
+hline(sellZone,   "Sell zone",color=color.new(color.red,   60))
+bgcolor(buyProb >= buyZone ? color.new(color.green, 88) :
+        buyProb <= sellZone ? color.new(color.red,   88) : na)
+
+// =============================================================================
+// Status table
+// =============================================================================
+var table tbl = table.new(position.top_right, 2, 9, border_width=1)
+fmt(x) => str.tostring(x, "#.00")
+fmtP(x) => str.tostring(x, "#.0") + "%"
+
+if barstate.islast
+    bias = buyProb >= buyZone ? "BUY"  : buyProb <= sellZone ? "SELL" : "NEUTRAL"
+    biasC = buyProb >= buyZone ? color.green :
+            buyProb <= sellZone ? color.red   : color.gray
+
+    table.cell(tbl, 0, 0, "GBP/USD 24/7", bgcolor=color.navy, text_color=color.white)
+    table.cell(tbl, 1, 0, syminfo.ticker,  bgcolor=color.navy, text_color=color.white)
+
+    table.cell(tbl, 0, 1, "Buy %",  text_color=color.green)
+    table.cell(tbl, 1, 1, fmtP(buyProb),  text_color=color.green)
+    table.cell(tbl, 0, 2, "Sell %", text_color=color.red)
+    table.cell(tbl, 1, 2, fmtP(sellProb), text_color=color.red)
+
+    table.cell(tbl, 0, 3, "Trend",     text_color=color.white)
+    table.cell(tbl, 1, 3, fmt(trendScore),  text_color=color.white)
+    table.cell(tbl, 0, 4, "Momentum",  text_color=color.white)
+    table.cell(tbl, 1, 4, fmt(momScore),    text_color=color.white)
+    table.cell(tbl, 0, 5, "DXY",       text_color=color.white)
+    table.cell(tbl, 1, 5, fmt(dxyScore),    text_color=color.white)
+    table.cell(tbl, 0, 6, "UK-US 10Y", text_color=color.white)
+    table.cell(tbl, 1, 6, fmt(yieldScore),  text_color=color.white)
+    table.cell(tbl, 0, 7, "News",      text_color=color.white)
+    table.cell(tbl, 1, 7, useNews ? fmt(extNews) : "off", text_color=color.white)
+
+    table.cell(tbl, 0, 8, "Signal", bgcolor=biasC, text_color=color.white)
+    table.cell(tbl, 1, 8, bias,     bgcolor=biasC, text_color=color.white)
+
+// =============================================================================
+// Alerts (24/7, fire as soon as the threshold is crossed)
+// =============================================================================
+alertcondition(ta.crossover(buyProb,  buyZone),
+     title="Buy bias activated",
+     message="GBP/USD buy probability crossed above {{plot_0}}% on {{ticker}} ({{interval}})")
+alertcondition(ta.crossunder(buyProb, sellZone),
+     title="Sell bias activated",
+     message="GBP/USD sell probability dominant ({{plot_1}}%) on {{ticker}} ({{interval}})")
+alertcondition(ta.cross(buyProb, 50),
+     title="Bias flip (50% line cross)",
+     message="GBP/USD 24/7 bias flipped at 50% on {{ticker}} ({{interval}})")
