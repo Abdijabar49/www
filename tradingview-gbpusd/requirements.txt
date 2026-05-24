@@ -1,0 +1,10 @@
+# news_sentiment.py uses only the Python 3.10+ stdlib (urllib, xml, json,
+# dataclasses). No third-party packages are required. This file exists so
+# you can pin a richer NLP backend if you swap score_headline() for a
+# transformer-based sentiment model. Suggested upgrades:
+#
+#   feedparser>=6.0        # more forgiving RSS/Atom parser
+#   beautifulsoup4>=4.12   # for non-RSS HTML scraping (Bloomberg / Reuters)
+#   requests>=2.31         # nicer HTTP client
+#   transformers>=4.40     # FinBERT or similar
+#   torch>=2.2             # backend for transformers
