@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Background -->
+    <path
+        android:fillColor="#0F4C81"
+        android:pathData="M0,0h108v108h-108z" />
+
+    <!-- White circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,18 a36,36 0 1,0 0,72 a36,36 0 1,0 0,-72 z" />
+
+    <!-- Pound symbol (stylised) -->
+    <path
+        android:fillColor="#0F4C81"
+        android:pathData="M44,38 h18 v6 h-12 v8 h10 v6 h-10 v8 h14 v6 h-22 v-6 h2 v-8 h-2 v-6 h2 v-8 h-2 z"
+        android:strokeWidth="0" />
+
+</vector>
