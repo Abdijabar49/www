@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand_primary">#0F4C81</color>
+    <color name="brand_buy">#1B8B3A</color>
+    <color name="brand_sell">#C0392B</color>
+</resources>
