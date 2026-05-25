@@ -1,0 +1,100 @@
+{
+    "_comment": "Headline feeds for GBP/USD signal tool. type=rss preferred (most reliable). type=html parses headlines from a page.",
+    "feeds": [
+        {
+            "name": "FXStreet GBPUSD",
+            "type": "rss",
+            "url": "https://news.google.com/rss/search?q=GBPUSD+OR+%22pound+sterling%22+site:fxstreet.com&hl=en",
+            "filter": ".*",
+            "weight": 1.2
+        },
+        {
+            "name": "Investing.com Forex News",
+            "type": "rss",
+            "url": "https://www.investing.com/rss/news_1.rss",
+            "filter": "gbp|sterling|pound|cable|gbpusd|gbp/usd",
+            "weight": 1.0
+        },
+        {
+            "name": "DailyFX Forex Market News",
+            "type": "rss",
+            "url": "https://www.dailyfx.com/feeds/market-news",
+            "filter": "gbp|sterling|pound|cable|gbpusd|gbp/usd",
+            "weight": 1.1
+        },
+        {
+            "name": "Action Forex GBPUSD Outlook",
+            "type": "rss",
+            "url": "https://www.actionforex.com/category/technical-outlook/gbpusd-outlook/feed/",
+            "filter": ".*",
+            "weight": 1.2
+        },
+        {
+            "name": "Reuters Currencies",
+            "type": "rss",
+            "url": "https://news.google.com/rss/search?q=%22GBPUSD%22+OR+%22pound+sterling%22+site:reuters.com&hl=en",
+            "filter": ".*",
+            "weight": 1.0
+        },
+        {
+            "name": "MarketWatch Real-Time Headlines",
+            "type": "rss",
+            "url": "https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines",
+            "filter": "gbp|sterling|pound|cable|gbpusd|gbp/usd",
+            "weight": 0.9
+        },
+        {
+            "name": "Bloomberg Markets (via Google News)",
+            "type": "rss",
+            "url": "https://news.google.com/rss/search?q=GBPUSD+OR+%22pound+sterling%22+site:bloomberg.com&hl=en",
+            "filter": ".*",
+            "weight": 0.9
+        },
+        {
+            "name": "Trading Economics GBPUSD (via Google News)",
+            "type": "rss",
+            "url": "https://news.google.com/rss/search?q=GBPUSD+site:tradingeconomics.com&hl=en",
+            "filter": ".*",
+            "weight": 0.7
+        },
+        {
+            "name": "Kitco News FX (via Google News)",
+            "type": "rss",
+            "url": "https://news.google.com/rss/search?q=pound+sterling+OR+GBPUSD+site:kitco.com&hl=en",
+            "filter": ".*",
+            "weight": 0.6
+        },
+        {
+            "name": "Forex Factory News (via Google News)",
+            "type": "rss",
+            "url": "https://news.google.com/rss/search?q=GBPUSD+site:forexfactory.com&hl=en",
+            "filter": ".*",
+            "weight": 0.7
+        },
+        {
+            "name": "Myfxbook Sentiment Page",
+            "type": "html",
+            "url": "https://www.myfxbook.com/community/outlook/GBPUSD",
+            "filter": ".*",
+            "weight": 1.5,
+            "extract": "sentiment"
+        }
+    ],
+    "lexicon": {
+        "bullish_gbp": [
+            "rally", "rallies", "surge", "surges", "jump", "jumps", "rise", "rises", "rising",
+            "gain", "gains", "climb", "climbs", "advance", "advances", "strengthen", "strengthens",
+            "outperform", "outperforms", "soar", "soars", "higher", "upside", "bullish",
+            "hawkish", "hike", "hikes", "beat", "beats", "strong", "robust", "resilient",
+            "rebound", "rebounds", "recovery", "recovers", "breakout", "squeeze",
+            "firmer", "rallying", "supportive", "buoyant", "lifted"
+        ],
+        "bearish_gbp": [
+            "fall", "falls", "falling", "drop", "drops", "decline", "declines", "slide", "slides",
+            "tumble", "tumbles", "plunge", "plunges", "weaken", "weakens", "lower", "downside",
+            "bearish", "dovish", "cut", "cuts", "miss", "misses", "disappoint", "disappoints",
+            "weak", "soft", "fragile", "selloff", "breakdown", "deficit",
+            "softer", "slumps", "sinks", "steepest", "pressure", "pressured", "subdued"
+        ]
+    }
+}
